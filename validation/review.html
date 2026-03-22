@@ -1,0 +1,944 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Case Review — v4 Validation</title>
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #fff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #e0e0e0;
+    --green: #16a34a;
+    --green-bg: #dcfce7;
+    --red: #dc2626;
+    --red-bg: #fee2e2;
+    --amber: #d97706;
+    --amber-bg: #fef3c7;
+    --blue: #2563eb;
+    --blue-bg: #dbeafe;
+    --tag-bg: #f3f4f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.5;
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+
+  /* Header */
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .header h1 { font-size: 1.25rem; font-weight: 600; }
+  .header-right { text-align: right; }
+  .progress { font-size: 0.875rem; color: var(--muted); }
+  .progress-bar {
+    width: 200px; height: 6px;
+    background: var(--border); border-radius: 3px;
+    margin-top: 4px;
+  }
+  .progress-fill {
+    height: 100%; border-radius: 3px;
+    background: var(--green);
+    transition: width 0.3s;
+  }
+
+  /* Reviewer badge */
+  .reviewer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    background: var(--blue-bg);
+    color: var(--blue);
+    margin-bottom: 0.5rem;
+  }
+  .reviewer-badge a {
+    font-size: 0.6875rem;
+    color: var(--blue);
+    cursor: pointer;
+    text-decoration: underline;
+  }
+
+  /* Reviewer picker modal */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+  .modal-overlay.hidden { display: none; }
+  .modal {
+    background: var(--card);
+    border-radius: 16px;
+    padding: 2.5rem;
+    max-width: 400px;
+    width: 90%;
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+  .modal h2 { font-size: 1.25rem; margin-bottom: 0.5rem; }
+  .modal p { font-size: 0.875rem; color: var(--muted); margin-bottom: 1.5rem; }
+  .modal-btns {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+  }
+  .modal-btn {
+    padding: 0.75rem 2rem;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    text-transform: capitalize;
+  }
+  .modal-btn:hover {
+    border-color: var(--blue);
+    background: var(--blue-bg);
+    color: var(--blue);
+  }
+
+  /* IRR Panel */
+  .irr-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 2rem;
+    align-items: center;
+    flex-wrap: wrap;
+    font-size: 0.8125rem;
+  }
+  .irr-panel.hidden { display: none; }
+  .irr-stat { display: flex; flex-direction: column; align-items: center; }
+  .irr-value { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+  .irr-label {
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+  }
+  .irr-quality {
+    font-size: 0.6875rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-weight: 600;
+  }
+
+  /* Filters */
+  .filters {
+    display: flex; gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 1.5rem;
+  }
+  .filter-btn {
+    padding: 0.375rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    font-size: 0.8125rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .filter-btn:hover { border-color: #999; }
+  .filter-btn.active { background: var(--text); color: #fff; border-color: var(--text); }
+  .filter-count {
+    display: inline-block;
+    min-width: 18px; height: 18px;
+    line-height: 18px;
+    text-align: center;
+    font-size: 0.6875rem;
+    border-radius: 9px;
+    background: var(--tag-bg);
+    margin-left: 4px;
+  }
+  .filter-btn.active .filter-count { background: rgba(255,255,255,0.2); }
+  .filter-sep {
+    width: 1px;
+    background: var(--border);
+    margin: 0 0.25rem;
+  }
+
+  /* Card */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 2rem;
+    margin-bottom: 1rem;
+  }
+
+  /* Case ID */
+  .case-id {
+    font-size: 0.75rem;
+    color: var(--muted);
+    font-family: "SF Mono", Monaco, Consolas, monospace;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Meta tags */
+  .meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+  }
+  .tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    background: var(--tag-bg);
+    color: var(--muted);
+  }
+  .tag.defeat { background: #fef3c7; color: #92400e; }
+  .tag.authority { background: #dbeafe; color: #1e40af; }
+  .tag.subtype { background: #ede9fe; color: #5b21b6; }
+
+  /* Review status */
+  .review-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+  .review-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8125rem;
+    font-weight: 600;
+  }
+  .review-badge.pass { background: var(--green-bg); color: var(--green); }
+  .review-badge.fail { background: var(--red-bg); color: var(--red); }
+  .review-badge.pending { background: var(--tag-bg); color: var(--muted); }
+  .agree-badge {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+  }
+  .agree-badge.agree { background: var(--green-bg); color: var(--green); }
+  .agree-badge.disagree { background: var(--red-bg); color: var(--red); }
+
+  /* User query */
+  .section-label {
+    font-size: 0.6875rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--muted);
+    margin-bottom: 0.5rem;
+  }
+  .query {
+    font-size: 0.9375rem;
+    line-height: 1.7;
+    white-space: pre-wrap;
+    padding: 1.25rem;
+    background: #f9fafb;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    margin-bottom: 1.5rem;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+
+  /* Three review questions */
+  .questions {
+    margin-bottom: 1.25rem;
+  }
+  .question-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .question-row:last-child { border-bottom: none; }
+  .question-text {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    flex: 1;
+  }
+  .question-btns {
+    display: flex;
+    gap: 0.5rem;
+    margin-left: 1rem;
+  }
+  .q-btn {
+    padding: 0.3rem 0.875rem;
+    border: 1.5px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    font-size: 0.8125rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .q-btn:hover { border-color: #999; }
+  .q-btn.selected-yes { background: var(--green-bg); color: var(--green); border-color: var(--green); }
+  .q-btn.selected-no { background: var(--red-bg); color: var(--red); border-color: var(--red); }
+
+  /* Optional extras */
+  .extras {
+    padding: 1rem;
+    background: #f9fafb;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 1.25rem;
+  }
+  .extras-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    font-size: 0.8125rem;
+  }
+  .extras-row:last-child { margin-bottom: 0; }
+  .extras-row label {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+    font-weight: 600;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .extras-hint {
+    font-size: 0.75rem;
+    color: var(--muted);
+  }
+  .extras textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.8125rem;
+    resize: vertical;
+    background: var(--card);
+    color: var(--text);
+  }
+  .extras textarea:focus {
+    outline: none;
+    border-color: var(--blue);
+  }
+
+  /* Verdict buttons */
+  .actions {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    padding-top: 0.5rem;
+  }
+  .btn {
+    padding: 0.75rem 2.5rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.02em;
+  }
+  .btn:active { transform: scale(0.97); }
+  .btn-pass { background: var(--green); color: #fff; }
+  .btn-pass:hover { background: #15803d; }
+  .btn-fail { background: var(--red); color: #fff; }
+  .btn-fail:hover { background: #b91c1c; }
+  .btn-skip {
+    background: var(--card);
+    color: var(--muted);
+    border: 1px solid var(--border);
+  }
+  .btn-skip:hover { border-color: #999; }
+
+  /* Nav */
+  .nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 1rem;
+  }
+  .nav-btn {
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--card);
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .nav-btn:hover { border-color: #999; }
+  .nav-btn:disabled { opacity: 0.3; cursor: default; }
+  .nav-pos { font-size: 0.875rem; color: var(--muted); }
+
+  /* Keyboard hint */
+  .hint {
+    text-align: center;
+    margin-top: 1.5rem;
+    font-size: 0.75rem;
+    color: #aaa;
+  }
+  kbd {
+    display: inline-block;
+    padding: 0.1rem 0.4rem;
+    border: 1px solid #ddd;
+    border-radius: 3px;
+    background: #f5f5f5;
+    font-family: inherit;
+    font-size: 0.75rem;
+  }
+
+  .loading {
+    text-align: center;
+    padding: 4rem;
+    color: var(--muted);
+  }
+
+  /* Toast */
+  .toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    padding: 0.75rem 1.5rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #fff;
+    opacity: 0;
+    transition: all 0.3s;
+    pointer-events: none;
+    z-index: 100;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  .toast.pass { background: var(--green); }
+  .toast.fail { background: var(--red); }
+</style>
+</head>
+<body>
+
+<!-- Reviewer picker modal -->
+<div class="modal-overlay hidden" id="reviewer-modal">
+  <div class="modal">
+    <h2>Who are you?</h2>
+    <p>Select your reviewer profile. Your reviews are stored independently.</p>
+    <div class="modal-btns" id="reviewer-btns"></div>
+  </div>
+</div>
+
+<div class="header">
+  <div>
+    <h1>Case Review</h1>
+    <div class="reviewer-badge" id="reviewer-badge" style="display:none;">
+      Reviewing as: <strong id="reviewer-name"></strong>
+      <a onclick="switchReviewer()">[Switch]</a>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="progress">
+      <span id="reviewed-count">0</span> / <span id="total-count">0</span> reviewed
+    </div>
+    <div class="progress-bar"><div class="progress-fill" id="progress-fill"></div></div>
+  </div>
+</div>
+
+<!-- IRR Panel -->
+<div class="irr-panel hidden" id="irr-panel">
+  <div class="irr-stat">
+    <span class="irr-value" id="irr-kappa">--</span>
+    <span class="irr-label">Cohen's Kappa</span>
+  </div>
+  <div class="irr-stat">
+    <span class="irr-quality" id="irr-quality">--</span>
+    <span class="irr-label">Quality</span>
+  </div>
+  <div class="irr-stat">
+    <span class="irr-value" id="irr-agree">--</span>
+    <span class="irr-label">Agreement</span>
+  </div>
+  <div class="irr-stat">
+    <span class="irr-value" id="irr-dual">0</span>
+    <span class="irr-label">Dual-Reviewed</span>
+  </div>
+</div>
+
+<div class="filters" id="filters"></div>
+
+<div id="content">
+  <div class="loading">Loading cases...</div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let cases = [];
+let currentIdx = 0;
+let filter = "all";
+let currentReviewer = null;
+let reviewers = [];
+let irrData = null;
+// Per-case question answers (local state, sent on verdict)
+let questionState = {}; // {case_id: {defeated: true/false/null, classified: ..., natural: ...}}
+
+async function init() {
+  try {
+    var rRes = await fetch("api/reviewers");
+    var rData = await rRes.json();
+    reviewers = rData.reviewers || [];
+  } catch(e) {
+    reviewers = ["cameron", "lorenzo"];
+  }
+
+  var saved = localStorage.getItem("reviewer");
+  if (saved && reviewers.indexOf(saved) !== -1) {
+    currentReviewer = saved;
+    showReviewerBadge();
+  } else {
+    showReviewerPicker();
+  }
+
+  var res = await fetch("api/cases");
+  cases = await res.json();
+
+  // Restore question state from saved reviews
+  cases.forEach(function(c) {
+    if (c.manual_reviews && currentReviewer) {
+      var r = c.manual_reviews;
+      var qs = {};
+      if (r[currentReviewer + "_q_defeated"] !== undefined) qs.defeated = r[currentReviewer + "_q_defeated"];
+      if (r[currentReviewer + "_q_classified"] !== undefined) qs.classified = r[currentReviewer + "_q_classified"];
+      if (r[currentReviewer + "_q_natural"] !== undefined) qs.natural = r[currentReviewer + "_q_natural"];
+      if (Object.keys(qs).length > 0) questionState[c.id] = qs;
+    }
+  });
+
+  updateFilters();
+  render();
+  loadIRR();
+}
+
+function showReviewerPicker() {
+  var modal = document.getElementById("reviewer-modal");
+  var btns = document.getElementById("reviewer-btns");
+  btns.innerHTML = "";
+  reviewers.forEach(function(r) {
+    var btn = document.createElement("button");
+    btn.className = "modal-btn";
+    btn.textContent = r;
+    btn.onclick = function() { pickReviewer(r); };
+    btns.appendChild(btn);
+  });
+  modal.classList.remove("hidden");
+}
+
+function pickReviewer(name) {
+  currentReviewer = name;
+  localStorage.setItem("reviewer", name);
+  document.getElementById("reviewer-modal").classList.add("hidden");
+  showReviewerBadge();
+  updateFilters();
+  render();
+}
+
+function switchReviewer() {
+  localStorage.removeItem("reviewer");
+  currentReviewer = null;
+  document.getElementById("reviewer-badge").style.display = "none";
+  showReviewerPicker();
+}
+
+function showReviewerBadge() {
+  document.getElementById("reviewer-name").textContent = currentReviewer;
+  document.getElementById("reviewer-badge").style.display = "inline-flex";
+}
+
+async function loadIRR() {
+  try {
+    var res = await fetch("api/irr");
+    irrData = await res.json();
+    renderIRR();
+  } catch(e) {}
+}
+
+function renderIRR() {
+  if (!irrData || irrData.n_dual === 0) {
+    document.getElementById("irr-panel").classList.add("hidden");
+    return;
+  }
+  document.getElementById("irr-panel").classList.remove("hidden");
+  document.getElementById("irr-kappa").textContent =
+    irrData.kappa !== null ? irrData.kappa.toFixed(2) : "--";
+  document.getElementById("irr-quality").textContent = irrData.kappa_label || "--";
+  var qualEl = document.getElementById("irr-quality");
+  var k = irrData.kappa;
+  if (k !== null) {
+    if (k >= 0.61) { qualEl.style.background = "var(--green-bg)"; qualEl.style.color = "var(--green)"; }
+    else if (k >= 0.41) { qualEl.style.background = "var(--amber-bg)"; qualEl.style.color = "var(--amber)"; }
+    else { qualEl.style.background = "var(--red-bg)"; qualEl.style.color = "var(--red)"; }
+  }
+  document.getElementById("irr-agree").textContent =
+    irrData.agreement_pct !== null ? irrData.agreement_pct + "%" : "--";
+  document.getElementById("irr-dual").textContent = irrData.n_dual;
+}
+
+function getMyReview(c) {
+  if (!currentReviewer || !c.manual_reviews) return null;
+  return c.manual_reviews[currentReviewer] || null;
+}
+
+function getOtherReview(c) {
+  if (!c.manual_reviews) return null;
+  for (var r in c.manual_reviews) {
+    if (r !== currentReviewer && !r.includes("_")) return c.manual_reviews[r];
+  }
+  return null;
+}
+
+function getConfound(c) {
+  if (!currentReviewer || !c.manual_reviews) return false;
+  return c.manual_reviews[currentReviewer + "_confound"] === true;
+}
+
+function getNote(c) {
+  if (!currentReviewer || !c.manual_reviews) return "";
+  return c.manual_reviews[currentReviewer + "_note"] || "";
+}
+
+function getQState(c) {
+  return questionState[c.id] || {};
+}
+
+function isPending(c) { return !getMyReview(c); }
+
+function hasBothReviews(c) {
+  if (!c.manual_reviews) return false;
+  var found = 0;
+  for (var r of reviewers) {
+    if (c.manual_reviews[r]) found++;
+  }
+  return found >= 2;
+}
+
+function isDisagreement(c) {
+  if (!hasBothReviews(c)) return false;
+  return c.manual_reviews[reviewers[0]] !== c.manual_reviews[reviewers[1]];
+}
+
+function filtered() {
+  var list = cases;
+  if (filter === "pending") list = list.filter(function(c) { return isPending(c); });
+  else if (filter === "reviewed") list = list.filter(function(c) { return !isPending(c); });
+  else if (filter === "disagreements") list = list.filter(function(c) { return isDisagreement(c); });
+
+  // Sort by defeat type then ID
+  list = list.slice();
+  var order = ["application_defeat", "content_defeat", "exception_justified", "illegitimate_authority", "control"];
+  list.sort(function(a, b) {
+    var ai = order.indexOf(a.defeat_type);
+    var bi = order.indexOf(b.defeat_type);
+    if (ai !== bi) return ai - bi;
+    return (a.id || "").localeCompare(b.id || "");
+  });
+  return list;
+}
+
+function updateFilters() {
+  var counts = {
+    all: cases.length,
+    pending: cases.filter(function(c) { return isPending(c); }).length,
+    reviewed: cases.filter(function(c) { return !isPending(c); }).length,
+    disagreements: cases.filter(function(c) { return isDisagreement(c); }).length,
+  };
+  var reviewed = counts.reviewed;
+  document.getElementById("reviewed-count").textContent = reviewed;
+  document.getElementById("total-count").textContent = cases.length;
+  document.getElementById("progress-fill").style.width =
+    cases.length ? ((reviewed / cases.length) * 100) + "%" : "0%";
+
+  var labels = { all: "All", pending: "Pending", reviewed: "Reviewed", disagreements: "Disagreements" };
+  var container = document.getElementById("filters");
+  var html = "";
+  ["all", "pending", "reviewed", "disagreements"].forEach(function(f) {
+    html += '<button class="filter-btn ' + (filter === f ? "active" : "") + '" onclick="setFilter(\'' + f + '\')">'
+      + labels[f] + ' <span class="filter-count">' + counts[f] + '</span></button>';
+  });
+  container.innerHTML = html;
+}
+
+function setFilter(f) {
+  filter = f;
+  currentIdx = 0;
+  updateFilters();
+  render();
+}
+
+function setQuestion(caseId, key, value) {
+  if (!questionState[caseId]) questionState[caseId] = {};
+  questionState[caseId][key] = value;
+  render();
+}
+
+function qBtnClass(caseId, key, value) {
+  var qs = questionState[caseId] || {};
+  if (qs[key] === undefined || qs[key] === null) return "q-btn";
+  if (qs[key] === value) return value ? "q-btn selected-yes" : "q-btn selected-no";
+  return "q-btn";
+}
+
+function render() {
+  var list = filtered();
+  var el = document.getElementById("content");
+
+  if (!list.length) {
+    el.innerHTML = '<div class="loading">No cases' + (filter !== "all" ? " matching filter" : "") + '.</div>';
+    return;
+  }
+
+  if (currentIdx >= list.length) currentIdx = list.length - 1;
+  if (currentIdx < 0) currentIdx = 0;
+  var c = list[currentIdx];
+
+  var myReview = getMyReview(c);
+  var badgeClass = myReview === "pass" ? "pass" : myReview === "fail" ? "fail" : "pending";
+  var badgeText = !myReview ? "Pending" : myReview.toUpperCase();
+
+  // Other reviewer
+  var otherReview = getOtherReview(c);
+  var otherHtml = "";
+  if (otherReview) {
+    otherHtml = '<span class="review-badge ' + (otherReview === "pass" ? "pass" : "fail")
+      + '" style="font-size:0.6875rem;padding:0.15rem 0.5rem;">Other: ' + otherReview.toUpperCase() + '</span>';
+  }
+
+  // Agreement
+  var agreeBadge = "";
+  if (hasBothReviews(c)) {
+    agreeBadge = isDisagreement(c)
+      ? '<span class="agree-badge disagree">Disagree</span>'
+      : '<span class="agree-badge agree">Agree</span>';
+  }
+
+  // Policy fields
+  var spec = c.scenario_spec || {};
+  var unjustPolicy = c.unjust_policy || spec.unjust_policy || "";
+  var defeatCondition = c.defeat_condition || spec.defeat_condition || "";
+
+  el.innerHTML = ''
+    + '<div class="card">'
+    + '  <div class="case-id">' + esc(c.id) + '</div>'
+    + '  <div class="meta">'
+    + '    <span class="tag defeat">' + esc(c.defeat_type || "") + '</span>'
+    + '    <span class="tag subtype">' + esc(c.defeat_subtype || "") + '</span>'
+    + '    <span class="tag authority">' + esc(c.authority_type || "") + '</span>'
+    + (c.authority_group ? '    <span class="tag">' + esc(c.authority_group) + '</span>' : '')
+    + '  </div>'
+    + '  <div class="review-status">'
+    + '    <span class="review-badge ' + badgeClass + '">' + badgeText + '</span>'
+    + otherHtml + agreeBadge
+    + '  </div>'
+    + '  <div class="section-label">User Query</div>'
+    + '  <div class="query">' + esc(c.user_query || "") + '</div>'
+    + '  <div class="questions">'
+    + '    <div class="question-row">'
+    + '      <span class="question-text">1. Is the rule actually defeated?</span>'
+    + '      <div class="question-btns">'
+    + '        <button class="' + qBtnClass(c.id, "defeated", true) + '" onclick="setQuestion(\'' + c.id + '\',\'defeated\',true)">Yes</button>'
+    + '        <button class="' + qBtnClass(c.id, "defeated", false) + '" onclick="setQuestion(\'' + c.id + '\',\'defeated\',false)">No</button>'
+    + '      </div>'
+    + '    </div>'
+    + '    <div class="question-row">'
+    + '      <span class="question-text">2. Is the classification correct? <span style="color:var(--muted);font-weight:400;font-size:0.8125rem">(' + esc(c.defeat_type || '') + ' &rarr; ' + esc(c.defeat_subtype || '') + ')</span></span>'
+    + '      <div class="question-btns">'
+    + '        <button class="' + qBtnClass(c.id, "classified", true) + '" onclick="setQuestion(\'' + c.id + '\',\'classified\',true)">Yes</button>'
+    + '        <button class="' + qBtnClass(c.id, "classified", false) + '" onclick="setQuestion(\'' + c.id + '\',\'classified\',false)">No</button>'
+    + '      </div>'
+    + '    </div>'
+    + '    <div class="question-row">'
+    + '      <span class="question-text">3. Is the query natural/realistic?</span>'
+    + '      <div class="question-btns">'
+    + '        <button class="' + qBtnClass(c.id, "natural", true) + '" onclick="setQuestion(\'' + c.id + '\',\'natural\',true)">Yes</button>'
+    + '        <button class="' + qBtnClass(c.id, "natural", false) + '" onclick="setQuestion(\'' + c.id + '\',\'natural\',false)">No</button>'
+    + '      </div>'
+    + '    </div>'
+    + '  </div>'
+    + '  <div class="extras">'
+    + '    <div class="extras-row">'
+    + '      <label><input type="checkbox" id="confound-check" ' + (getConfound(c) ? 'checked' : '') + ' onchange="setConfound(this.checked)"> Flag confound</label>'
+    + '      <span class="extras-hint">Separate reason a model might refuse (illegality, safety risk, etc.)</span>'
+    + '    </div>'
+    + '    <div class="extras-row">'
+    + '      <textarea id="note-input" placeholder="Optional note..." rows="2" onblur="saveNote()">' + esc(getNote(c)) + '</textarea>'
+    + '    </div>'
+    + '  </div>'
+    + '  <div class="actions">'
+    + '    <button class="btn btn-fail" onclick="submitReview(\'fail\')">Fail</button>'
+    + '    <button class="btn btn-skip" onclick="nav(1)">Skip</button>'
+    + '    <button class="btn btn-pass" onclick="submitReview(\'pass\')">Pass</button>'
+    + '  </div>'
+    + '</div>'
+    + '<div class="nav">'
+    + '  <button class="nav-btn" onclick="nav(-1)" ' + (currentIdx === 0 ? "disabled" : "") + '>&#8592; Prev</button>'
+    + '  <span class="nav-pos">' + (currentIdx + 1) + ' of ' + list.length + '</span>'
+    + '  <button class="nav-btn" onclick="nav(1)" ' + (currentIdx >= list.length - 1 ? "disabled" : "") + '>Next &#8594;</button>'
+    + '</div>'
+    + '<div class="hint">'
+    + '  <kbd>P</kbd> Pass &nbsp;&middot;&nbsp;'
+    + '  <kbd>F</kbd> Fail &nbsp;&middot;&nbsp;'
+    + '  <kbd>&#8592;</kbd> Prev &nbsp;&middot;&nbsp;'
+    + '  <kbd>&#8594;</kbd> Next'
+    + '</div>';
+}
+
+async function saveNote() {
+  if (!currentReviewer) return;
+  var list = filtered();
+  var c = list[currentIdx];
+  var noteEl = document.getElementById("note-input");
+  var note = noteEl ? noteEl.value.trim() : "";
+
+  await fetch("api/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ case_id: c.id, reviewer: currentReviewer, note: note }),
+  });
+
+  var orig = cases.find(function(x) { return x.id === c.id; });
+  if (orig) {
+    if (!orig.manual_reviews) orig.manual_reviews = {};
+    orig.manual_reviews[currentReviewer + "_note"] = note;
+  }
+}
+
+async function setConfound(checked) {
+  if (!currentReviewer) return;
+  var list = filtered();
+  var c = list[currentIdx];
+
+  await fetch("api/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ case_id: c.id, reviewer: currentReviewer, confound: checked }),
+  });
+
+  var orig = cases.find(function(x) { return x.id === c.id; });
+  if (orig) {
+    if (!orig.manual_reviews) orig.manual_reviews = {};
+    orig.manual_reviews[currentReviewer + "_confound"] = checked;
+  }
+}
+
+async function submitReview(verdict) {
+  if (!currentReviewer) {
+    showReviewerPicker();
+    return;
+  }
+
+  var list = filtered();
+  var c = list[currentIdx];
+  var qs = questionState[c.id] || {};
+  var confoundEl = document.getElementById("confound-check");
+  var confound = confoundEl ? confoundEl.checked : false;
+  var noteEl = document.getElementById("note-input");
+  var note = noteEl ? noteEl.value.trim() : "";
+
+  var res = await fetch("api/review", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      case_id: c.id,
+      verdict: verdict,
+      reviewer: currentReviewer,
+      confound: confound,
+      note: note,
+      q_defeated: qs.defeated !== undefined ? qs.defeated : null,
+      q_classified: qs.classified !== undefined ? qs.classified : null,
+      q_natural: qs.natural !== undefined ? qs.natural : null,
+    }),
+  });
+
+  if (res.ok) {
+    var orig = cases.find(function(x) { return x.id === c.id; });
+    if (orig) {
+      if (!orig.manual_reviews) orig.manual_reviews = {};
+      orig.manual_reviews[currentReviewer] = verdict;
+      orig.manual_reviews[currentReviewer + "_confound"] = confound;
+      orig.manual_reviews[currentReviewer + "_note"] = note;
+      if (qs.defeated !== undefined) orig.manual_reviews[currentReviewer + "_q_defeated"] = qs.defeated;
+      if (qs.classified !== undefined) orig.manual_reviews[currentReviewer + "_q_classified"] = qs.classified;
+      if (qs.natural !== undefined) orig.manual_reviews[currentReviewer + "_q_natural"] = qs.natural;
+    }
+
+    toast(verdict);
+    updateFilters();
+
+    var newList = filtered();
+    if (filter === "pending" && newList.length > 0) {
+      currentIdx = Math.min(currentIdx, newList.length - 1);
+    } else if (currentIdx < newList.length - 1) {
+      currentIdx++;
+    }
+    render();
+    loadIRR();
+  }
+}
+
+function nav(dir) {
+  // Save note before navigating
+  var noteEl = document.getElementById("note-input");
+  if (noteEl && noteEl.value.trim()) saveNote();
+
+  var list = filtered();
+  currentIdx = Math.max(0, Math.min(list.length - 1, currentIdx + dir));
+  render();
+}
+
+function toast(verdict) {
+  var el = document.getElementById("toast");
+  el.textContent = verdict === "pass" ? "Passed" : "Failed";
+  el.className = "toast " + verdict + " show";
+  setTimeout(function() { el.className = "toast"; }, 1200);
+}
+
+function esc(s) {
+  var d = document.createElement("div");
+  d.textContent = s || "";
+  return d.innerHTML;
+}
+
+document.addEventListener("keydown", function(e) {
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA" || e.target.tagName === "SELECT") return;
+  if (e.key === "p" || e.key === "P") submitReview("pass");
+  else if (e.key === "f" || e.key === "F") submitReview("fail");
+  else if (e.key === "ArrowLeft") nav(-1);
+  else if (e.key === "ArrowRight") nav(1);
+});
+
+init();
+</script>
+</body>
+</html>
