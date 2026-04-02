@@ -53,7 +53,7 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 # Target models -- all routed through OpenRouter
 #
-# 17 thinking configurations + 2 base comparisons = 19 total.
+# 16 thinking configurations + 2 base comparisons = 18 total.
 # See paper/model_suite.md for full documentation, pricing, and rationale.
 #
 # Each model has:
@@ -67,13 +67,12 @@ TARGET_MODELS: list[dict] = [
     {"id": "anthropic/claude-opus-4.6", "slug": "claude-opus-4-6"},
 
     # --- OpenAI GPT-5.4 (thinking) — reasoning must be explicitly enabled ---
+    # Pro gets extra headroom (16k) for mandatory high-effort reasoning.
     {"id": "openai/gpt-5.4-nano", "slug": "gpt-5-4-nano-thinking",
      "extra_body": {"reasoning_effort": "high"}},
     {"id": "openai/gpt-5.4-mini", "slug": "gpt-5-4-mini-thinking",
      "extra_body": {"reasoning_effort": "high"}},
     {"id": "openai/gpt-5.4", "slug": "gpt-5-4-thinking",
-     "extra_body": {"reasoning_effort": "high"}},
-    {"id": "openai/gpt-5.4-pro", "slug": "gpt-5-4-pro-thinking",
      "extra_body": {"reasoning_effort": "high"}},
 
     # --- OpenAI GPT-5.4 (base comparisons) — reasoning disabled ---
@@ -116,8 +115,102 @@ FLAG_GATES = {"du"}                    # metadata only, never filter
 # Collection parameters
 # ---------------------------------------------------------------------------
 TEMPERATURE = 0.0
-MAX_TOKENS = 2000
+MAX_TOKENS = 8000  # Headroom for reasoning models (only pay for tokens actually generated)
 INTER_CASE_DELAY_S = 2.0
+COST_CEILING = 1000.00  # USD — abort if cumulative cost exceeds this
+
+# ---------------------------------------------------------------------------
+# Pricing (per 1M tokens, via OpenRouter, March 2026)
+# ---------------------------------------------------------------------------
+MODEL_PRICING: dict[str, dict[str, float]] = {
+    "claude-sonnet-4-6":      {"input": 3.00, "output": 15.00},
+    "claude-opus-4-6":        {"input": 5.00, "output": 25.00},
+    "gpt-5-4-nano-thinking":  {"input": 0.20, "output": 1.25},
+    "gpt-5-4-mini-thinking":  {"input": 0.75, "output": 4.50},
+    "gpt-5-4-mini-base":      {"input": 0.75, "output": 4.50},
+    "gpt-5-4-thinking":       {"input": 2.50, "output": 15.00},
+    "gpt-5-4-base":           {"input": 2.50, "output": 15.00},
+    "gemini-3-1-pro":         {"input": 2.00, "output": 12.00},
+    "gemini-3-1-flash-lite":  {"input": 0.25, "output": 1.50},
+    "qwen-3-5-flash":         {"input": 0.065, "output": 0.26},
+    "qwen-3-5-plus":          {"input": 0.26, "output": 1.56},
+    "qwen-3-5-397b":          {"input": 0.39, "output": 2.34},
+    "glm-5-turbo":            {"input": 0.96, "output": 3.20},
+    "glm-5":                  {"input": 0.72, "output": 2.30},
+    "nemotron-3-nano":        {"input": 0.00, "output": 0.00},
+    "nemotron-3-super":       {"input": 0.00, "output": 0.00},
+    "grok-4-fast":            {"input": 0.20, "output": 0.50},
+    "grok-4":                 {"input": 3.00, "output": 15.00},
+}
+
+
+# ---------------------------------------------------------------------------
+# Cost tracker (shared across all models in a run)
+# ---------------------------------------------------------------------------
+class CostTracker:
+    """Track cumulative API cost and abort if ceiling is exceeded."""
+
+    def __init__(self, ceiling: float = COST_CEILING):
+        self.ceiling = ceiling
+        self.total_cost = 0.0
+        self.total_input_tokens = 0
+        self.total_output_tokens = 0
+        self.total_reasoning_tokens = 0
+        self.calls = 0
+        self._per_model: dict[str, float] = {}
+
+    def record(self, slug: str, usage: dict | None):
+        """Record a single API call's cost. Returns True if under ceiling."""
+        if not usage:
+            return True
+
+        prices = MODEL_PRICING.get(slug, {"input": 5.0, "output": 25.0})
+        input_tokens = usage.get("prompt_tokens", 0)
+        output_tokens = usage.get("completion_tokens", 0)
+        reasoning_tokens = usage.get("reasoning_tokens", 0)
+
+        cost = (input_tokens / 1_000_000) * prices["input"] + \
+               (output_tokens / 1_000_000) * prices["output"]
+
+        self.total_cost += cost
+        self.total_input_tokens += input_tokens
+        self.total_output_tokens += output_tokens
+        self.total_reasoning_tokens += reasoning_tokens
+        self.calls += 1
+        self._per_model[slug] = self._per_model.get(slug, 0.0) + cost
+
+        return self.total_cost < self.ceiling
+
+    def log_status(self, every_n: int = 50):
+        """Log cost status every N calls."""
+        if self.calls > 0 and self.calls % every_n == 0:
+            logger.info(
+                f"  COST: ${self.total_cost:.2f} / ${self.ceiling:.0f} ceiling "
+                f"({self.calls} calls, {self.total_input_tokens:,} in, "
+                f"{self.total_output_tokens:,} out, {self.total_reasoning_tokens:,} reasoning)"
+            )
+
+    def is_over_ceiling(self) -> bool:
+        return self.total_cost >= self.ceiling
+
+    def summary(self) -> str:
+        lines = [
+            f"{'='*60}",
+            f"COST SUMMARY",
+            f"{'='*60}",
+            f"  Total cost:       ${self.total_cost:.2f}",
+            f"  API calls:        {self.calls:,}",
+            f"  Input tokens:     {self.total_input_tokens:,}",
+            f"  Output tokens:    {self.total_output_tokens:,}",
+            f"  Reasoning tokens: {self.total_reasoning_tokens:,}",
+            f"  Ceiling:          ${self.ceiling:.0f}",
+            f"",
+            f"  Per-model breakdown:",
+        ]
+        for slug, cost in sorted(self._per_model.items(), key=lambda x: -x[1]):
+            lines.append(f"    {slug:<28s} ${cost:.2f}")
+        lines.append(f"{'='*60}")
+        return "\n".join(lines)
 
 
 # ===================================================================
@@ -267,7 +360,7 @@ def collect_single_case(
         # Send with empty system prompt to get the model's default behavior.
         # OpenRouter requires a system message to be present, so we pass an
         # empty string which models treat as "no system prompt".
-        response_text = client.generate_with_retry(
+        result = client.generate_with_retry(
             prompt=user_query,
             system_prompt="",
             temperature=TEMPERATURE,
@@ -278,25 +371,29 @@ def collect_single_case(
             extra_body=model_info.get("extra_body"),
         )
 
-        if response_text is None:
+        if result is None:
             return {
                 "case_id": case_id,
                 "model": model_info["id"],
+                "user_query": user_query,
                 "response": None,
                 "timestamp": datetime.now(timezone.utc).isoformat(),
                 "status": "error",
                 "error_message": "All retry attempts returned empty/null",
                 "gate_flags": get_flag_gate_metadata(case_id, stem),
+                "usage": None,
             }
 
         return {
             "case_id": case_id,
             "model": model_info["id"],
-            "response": response_text,
+            "user_query": user_query,
+            "response": result.content,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": "success",
             "error_message": None,
             "gate_flags": get_flag_gate_metadata(case_id, stem),
+            "usage": result.usage_dict(),
         }
 
     except Exception as exc:
@@ -304,11 +401,13 @@ def collect_single_case(
         return {
             "case_id": case_id,
             "model": model_info["id"],
+            "user_query": user_query,
             "response": None,
             "timestamp": datetime.now(timezone.utc).isoformat(),
             "status": "error",
             "error_message": str(exc),
             "gate_flags": get_flag_gate_metadata(case_id, stem),
+            "usage": None,
         }
 
 
@@ -329,9 +428,11 @@ def collect_file_for_model(
     dry_run: bool = False,
     new_only: bool = False,
     sample_ids: set[str] | None = None,
+    cost_tracker: CostTracker | None = None,
 ) -> tuple[int, int, int]:
     """
     Collect responses for all cases in a filtered file.
+    Saves incrementally after each case to avoid data loss on interruption.
 
     Cases in 2_filtered/ have already passed all blocking gates.
     No gate checking is performed here.
@@ -341,6 +442,7 @@ def collect_file_for_model(
     stem = input_file.stem
     cases = load_cases_from_file(input_file)
     source_metadata = load_metadata_from_file(input_file)
+    model_slug = model_info["slug"]
 
     # If --sample, restrict to sample IDs
     if sample_ids is not None:
@@ -348,11 +450,24 @@ def collect_file_for_model(
         if not cases:
             return 0, 0, 0
 
-    # If --new-only, skip cases already collected for this model
+    # Load existing responses (for --new-only merge and incremental append)
+    out_path = output_path_for(model_slug, stem)
+    existing_responses: list[dict] = []
+    if out_path.exists():
+        with open(out_path) as f:
+            existing_data = json.load(f)
+        existing_responses = existing_data.get("responses", [])
+
+    existing_ids = {r.get("case_id") for r in existing_responses}
+
+    # If --new-only, skip cases already collected
     eligible = cases
     already_collected = 0
     if new_only:
-        existing_ids = load_existing_case_ids(model_info["slug"], stem)
+        eligible = [c for c in cases if c.get("id") not in existing_ids]
+        already_collected = len(cases) - len(eligible)
+    elif existing_ids:
+        # Even without --new-only, skip cases already in the file (incremental safety)
         eligible = [c for c in cases if c.get("id") not in existing_ids]
         already_collected = len(cases) - len(eligible)
 
@@ -369,11 +484,19 @@ def collect_file_for_model(
     if not eligible:
         return 0, already_collected, 0
 
-    # Collect responses
-    responses: list[dict] = []
+    # Collect responses with incremental saves
+    responses = list(existing_responses)  # start from what we have
     errors = 0
 
     for i, case in enumerate(eligible):
+        # Check cost ceiling before each call
+        if cost_tracker and cost_tracker.is_over_ceiling():
+            logger.error(
+                f"COST CEILING REACHED: ${cost_tracker.total_cost:.2f} >= "
+                f"${cost_tracker.ceiling:.0f}. Aborting."
+            )
+            break
+
         cid = case.get("id", "unknown")
         logger.info(f"    [{i+1}/{len(eligible)}] {cid}")
 
@@ -383,23 +506,19 @@ def collect_file_for_model(
         if result["status"] == "error":
             errors += 1
 
+        # Record cost
+        if cost_tracker:
+            cost_tracker.record(model_slug, result.get("usage"))
+            cost_tracker.log_status(every_n=50)
+
+        # Incremental save after each case
+        save_responses(responses, model_info, source_metadata, stem)
+
         # Delay between cases (skip after last case)
         if i < len(eligible) - 1:
             time.sleep(INTER_CASE_DELAY_S)
 
-    # If new_only, merge with existing responses
-    if new_only:
-        out_path = output_path_for(model_info["slug"], stem)
-        if out_path.exists():
-            with open(out_path) as f:
-                existing_data = json.load(f)
-            existing_responses = existing_data.get("responses", [])
-            responses = existing_responses + responses
-
-    # Save (replaces file with full response set)
-    save_responses(responses, model_info, source_metadata, stem)
-
-    collected = len(responses) - errors
+    collected = sum(1 for r in responses if r.get("status") == "success")
     return collected, already_collected, errors
 
 
@@ -422,6 +541,11 @@ def main() -> int:
     parser.add_argument("--dry-run", action="store_true", help="Preview what would be collected without API calls")
     parser.add_argument("--sample", type=str, default=None,
                         help="Path to JSON file with case IDs to collect (pilot mode)")
+    parser.add_argument("--provider", type=str, default=None,
+                        choices=["anthropic", "openai", "google", "qwen", "glm", "nvidia", "xai"],
+                        help="Run only models from this provider (for staggered parallel launches)")
+    parser.add_argument("--cost-ceiling", type=float, default=COST_CEILING,
+                        help=f"Abort if cumulative cost exceeds this (default: ${COST_CEILING:.0f})")
     args = parser.parse_args()
 
     if not args.input and not args.all_files:
@@ -444,6 +568,16 @@ def main() -> int:
         input_files = [input_path]
 
     # Determine models
+    PROVIDER_PREFIXES = {
+        "anthropic": "anthropic/",
+        "openai": "openai/",
+        "google": "google/",
+        "qwen": "qwen/",
+        "glm": "z-ai/",
+        "nvidia": "nvidia/",
+        "xai": "x-ai/",
+    }
+
     if args.model:
         matched = [m for m in TARGET_MODELS if m["id"] == args.model]
         if not matched:
@@ -453,6 +587,12 @@ def main() -> int:
             )
             return 1
         models = matched
+    elif args.provider:
+        prefix = PROVIDER_PREFIXES.get(args.provider, args.provider + "/")
+        models = [m for m in TARGET_MODELS if m["id"].startswith(prefix)]
+        if not models:
+            logger.error(f"No models found for provider: {args.provider}")
+            return 1
     else:
         models = TARGET_MODELS
 
@@ -466,6 +606,9 @@ def main() -> int:
             sample_ids = set(json.load(f))
         logger.info(f"Pilot mode: {len(sample_ids)} sample case IDs loaded")
 
+    # Initialize cost tracker
+    cost_tracker = CostTracker(ceiling=args.cost_ceiling)
+
     logger.info(f"{'='*60}")
     logger.info(f"v4 Response Collector")
     logger.info(f"{'='*60}")
@@ -473,10 +616,13 @@ def main() -> int:
     logger.info(f"Files:  {len(input_files)} generated file(s)")
     if sample_ids:
         logger.info(f"Sample: {len(sample_ids)} cases (pilot mode)")
+    if args.provider:
+        logger.info(f"Provider: {args.provider}")
     logger.info(f"Resume: {args.resume}")
     logger.info(f"Dry run: {args.dry_run}")
     logger.info(f"Temperature: {TEMPERATURE}")
     logger.info(f"Max tokens: {MAX_TOKENS}")
+    logger.info(f"Cost ceiling: ${args.cost_ceiling:.0f}")
     logger.info(f"{'='*60}")
 
     # Summary accumulators
@@ -515,10 +661,20 @@ def main() -> int:
                 dry_run=args.dry_run,
                 new_only=args.new_only,
                 sample_ids=sample_ids,
+                cost_tracker=cost_tracker,
             )
             summary[model_slug]["collected"] += collected
             summary[model_slug]["gate_skipped"] += skipped
             summary[model_slug]["errors"] += errors
+
+            # Check cost ceiling after each file
+            if cost_tracker.is_over_ceiling():
+                logger.error(f"COST CEILING REACHED. Stopping all collection.")
+                break
+
+        # Break outer loop too if ceiling hit
+        if cost_tracker.is_over_ceiling():
+            break
 
     # Print summary
     print(f"\n{'='*60}")
@@ -531,6 +687,11 @@ def main() -> int:
         print(f"    Errors:        {stats['errors']}")
         if args.resume:
             print(f"    File-skipped:  {stats['file_skipped']} (--resume)")
+
+    # Print cost summary
+    if not args.dry_run:
+        print(f"\n{cost_tracker.summary()}")
+
     print(f"\n{'='*60}")
 
     return 0

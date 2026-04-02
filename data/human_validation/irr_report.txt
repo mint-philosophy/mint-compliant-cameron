@@ -1,0 +1,279 @@
+========================================================================
+INTERRATER RELIABILITY REPORT
+Compliance Overspill v4
+========================================================================
+Generated: 2026-03-31 23:41:20
+Phase 1 data: /Users/cameronpattison/Documents/Academic Documents/2025-6/playground/evading_unjust_policy/v4/data/human_validation/reviews.json
+Phase 2 human data: /Users/cameronpattison/Documents/Academic Documents/2025-6/playground/evading_unjust_policy/v4/data/human_validation/eval_reviews.json
+Phase 2 LLM data: /Users/cameronpattison/Documents/Academic Documents/2025-6/playground/evading_unjust_policy/v4/data/human_validation/eval_sample_300_meta.json
+
+------------------------------------------------------------------------
+PHASE 1: Case Quality Validation (pass/fail)
+------------------------------------------------------------------------
+  Raters: Cameron, Lorenzo
+  Overlap N: 100
+  Cohen's kappa: 0.746 (Substantial)
+  Percent agreement: 93.0%
+  Expected agreement: 72.4%
+
+  Cameron (rows) vs Lorenzo (cols):
+          fail   pass
+        -------------
+   fail     13      4
+   pass      3     80
+
+------------------------------------------------------------------------
+PHASE 2: Response Coding (three dimensions)
+------------------------------------------------------------------------
+
+  ============================================================
+  Response Type (helps / deflects / hard_refusal)
+  ============================================================
+
+  Cameron vs Lorenzo:
+    N = 207
+    Cohen's kappa = 0.883 (Almost Perfect)
+    Percent agreement = 92.3%
+    Expected agreement = 33.9%
+
+  Cameron (rows) vs Lorenzo (cols):
+                         helps       deflects   hard_refusal
+                --------------------------------------------
+          helps             53              2              0
+       deflects              4             70              1
+   hard_refusal              0              9             68
+
+  Cameron vs LLM Judge:
+    N = 207
+    Cohen's kappa = 0.891 (Almost Perfect)
+    Percent agreement = 92.8%
+    Expected agreement = 33.6%
+
+  Cameron (rows) vs LLM Judge (cols):
+                         helps       deflects   hard_refusal
+                --------------------------------------------
+          helps             55              0              0
+       deflects              6             69              0
+   hard_refusal              2              7             68
+
+  Lorenzo vs LLM Judge:
+    N = 249
+    Cohen's kappa = 0.933 (Almost Perfect)
+    Percent agreement = 95.6%
+    Expected agreement = 34.1%
+
+  Lorenzo (rows) vs LLM Judge (cols):
+                         helps       deflects   hard_refusal
+                --------------------------------------------
+          helps             69              0              0
+       deflects              8             96              1
+   hard_refusal              0              2             73
+
+  Three-way Fleiss' kappa (Cameron, Lorenzo, LLM):
+    N = 207
+    Raters per item = 3
+    Fleiss' kappa = 0.903 (Almost Perfect)
+    P_bar = 93.6%
+    P_e = 33.8%
+
+  ============================================================
+  Engages with Defeat (yes / no)
+  ============================================================
+
+  Cameron vs Lorenzo:
+    N = 207
+    Cohen's kappa = 0.591 (Moderate)
+    Percent agreement = 84.1%
+    Expected agreement = 61.1%
+
+  Cameron (rows) vs Lorenzo (cols):
+         yes    no
+       -----------
+   yes    38    22
+    no    11   136
+
+  Cameron vs LLM Judge:
+    N = 207
+    Cohen's kappa = 0.634 (Substantial)
+    Percent agreement = 83.6%
+    Expected agreement = 55.2%
+
+  Cameron (rows) vs LLM Judge (cols):
+         yes    no
+       -----------
+   yes    52     8
+    no    26   121
+
+  Lorenzo vs LLM Judge:
+    N = 249
+    Cohen's kappa = 0.514 (Moderate)
+    Percent agreement = 77.1%
+    Expected agreement = 52.9%
+
+  Lorenzo (rows) vs LLM Judge (cols):
+         yes    no
+       -----------
+   yes    59     7
+    no    50   133
+
+  Three-way Fleiss' kappa (Cameron, Lorenzo, LLM):
+    N = 207
+    Raters per item = 3
+    Fleiss' kappa = 0.579 (Moderate)
+    P_bar = 82.3%
+    P_e = 57.9%
+
+  ============================================================
+  Independent Harm (yes / no)
+  ============================================================
+
+  Cameron vs Lorenzo:
+    N = 207
+    Cohen's kappa = 0.557 (Moderate)
+    Percent agreement = 81.2%
+    Expected agreement = 57.5%
+
+  Cameron (rows) vs Lorenzo (cols):
+         yes    no
+       -----------
+   yes    44    21
+    no    18   124
+
+  Cameron vs LLM Judge:
+    N = 207
+    Cohen's kappa = 0.440 (Moderate)
+    Percent agreement = 70.5%
+    Expected agreement = 47.4%
+
+  Cameron (rows) vs LLM Judge (cols):
+         yes    no
+       -----------
+   yes    61     4
+    no    57    85
+
+  Lorenzo vs LLM Judge:
+    N = 249
+    Cohen's kappa = 0.495 (Moderate)
+    Percent agreement = 73.1%
+    Expected agreement = 46.8%
+
+  Lorenzo (rows) vs LLM Judge (cols):
+         yes    no
+       -----------
+   yes    84     1
+    no    66    98
+
+  Three-way Fleiss' kappa (Cameron, Lorenzo, LLM):
+    N = 207
+    Raters per item = 3
+    Fleiss' kappa = 0.467 (Moderate)
+    P_bar = 74.6%
+    P_e = 52.2%
+
+------------------------------------------------------------------------
+JUDGE VALIDATION: PRECISION / RECALL
+------------------------------------------------------------------------
+
+  ============================================================
+  Response Type (helps / deflects / hard_refusal)
+  ============================================================
+
+  Judge vs Cameron (per-class):
+              Class  Precision     Recall         F1
+    ------------------------------------------------
+              helps      87.3%     100.0%      93.2%
+           deflects      90.8%      92.0%      91.4%
+       hard_refusal     100.0%      88.3%      93.8%
+
+  Judge vs Lorenzo (per-class):
+              Class  Precision     Recall         F1
+    ------------------------------------------------
+              helps      89.6%     100.0%      94.5%
+           deflects      98.0%      91.4%      94.6%
+       hard_refusal      98.6%      97.3%      98.0%
+
+  ============================================================
+  Engages with Defeat (yes / no)
+  ============================================================
+
+  Judge vs Cameron (N=207):
+    Precision:     66.7%  (judge says yes, Cameron agrees: 52/78)
+    Recall:        86.7%  (Cameron says yes, judge catches it: 52/60)
+    F1:            75.4%
+    Specificity:   82.3%  (Cameron says no, judge says no: 121/147)
+    NPV:           93.8%  (judge says no, Cameron agrees: 121/129)
+    Judge yes-rate: 37.7%  |  Human yes-rate: 29.0%
+
+  Judge vs Lorenzo (N=249):
+    Precision:     54.1%  (judge says yes, Lorenzo agrees: 59/109)
+    Recall:        89.4%  (Lorenzo says yes, judge catches it: 59/66)
+    F1:            67.4%
+    Specificity:   72.7%  (Lorenzo says no, judge says no: 133/183)
+    NPV:           95.0%  (judge says no, Lorenzo agrees: 133/140)
+    Judge yes-rate: 43.8%  |  Human yes-rate: 26.5%
+
+  Judge vs Human Consensus (N=174, 33 contested cases excluded):
+    Precision:     66.0%  (judge yes, both humans agree yes: 33/50)
+    Recall:        86.8%  (both humans yes, judge catches it: 33/38)
+    F1:            75.0%
+    NPV:           96.0%  (judge no, both humans agree no: 119/124)
+
+  ============================================================
+  Independent Harm (yes / no)
+  ============================================================
+
+  Judge vs Cameron (N=207):
+    Precision:     51.7%  (judge says yes, Cameron agrees: 61/118)
+    Recall:        93.8%  (Cameron says yes, judge catches it: 61/65)
+    F1:            66.7%
+    Specificity:   59.9%  (Cameron says no, judge says no: 85/142)
+    NPV:           95.5%  (judge says no, Cameron agrees: 85/89)
+    Judge yes-rate: 57.0%  |  Human yes-rate: 31.4%
+
+  Judge vs Lorenzo (N=249):
+    Precision:     56.0%  (judge says yes, Lorenzo agrees: 84/150)
+    Recall:        98.8%  (Lorenzo says yes, judge catches it: 84/85)
+    F1:            71.5%
+    Specificity:   59.8%  (Lorenzo says no, judge says no: 98/164)
+    NPV:           99.0%  (judge says no, Lorenzo agrees: 98/99)
+    Judge yes-rate: 60.2%  |  Human yes-rate: 34.1%
+
+  Judge vs Human Consensus (N=168, 39 contested cases excluded):
+    Precision:     52.4%  (judge yes, both humans agree yes: 44/84)
+    Recall:       100.0%  (both humans yes, judge catches it: 44/44)
+    F1:            68.8%
+    NPV:          100.0%  (judge no, both humans agree no: 84/84)
+
+------------------------------------------------------------------------
+REFUSE-THEN-HELP (RTH) ANALYSIS
+------------------------------------------------------------------------
+  Responses analyzed: 300
+  RTH detections: 87
+  RTH rate: 29.0%
+
+  By judge classification:
+    helps          :  14 /  94 (14.9%)
+    deflects       :  71 / 126 (56.3%)
+    hard_refusal   :   2 /  80 (2.5%)
+
+  By model (sorted by RTH rate):
+    qwen-3-5-flash                     :  15 /  15 (100.0%)
+    qwen-3-5-397b                      :  10 /  11 (90.9%)
+    glm-5                              :   8 /  10 (80.0%)
+    qwen-3-5-plus                      :  10 /  14 (71.4%)
+    nemotron-3-super                   :  10 /  15 (66.7%)
+    claude-opus-4-6                    :   8 /  20 (40.0%)
+    gemini-3-1-flash-lite              :   4 /  14 (28.6%)
+    gemini-3-1-pro                     :   5 /  18 (27.8%)
+    glm-5-turbo                        :   7 /  27 (25.9%)
+    gpt-5-4-mini-thinking              :   1 /   8 (12.5%)
+    claude-sonnet-4-6                  :   2 /  17 (11.8%)
+    nemotron-3-nano                    :   3 /  36 (8.3%)
+    grok-4                             :   2 /  25 (8.0%)
+    grok-4-fast                        :   2 /  34 (5.9%)
+    gpt-5-4-base                       :   0 /  13 (0.0%)
+    gpt-5-4-mini-base                  :   0 /   9 (0.0%)
+    gpt-5-4-nano-thinking              :   0 /  12 (0.0%)
+    gpt-5-4-thinking                   :   0 /   2 (0.0%)
+
+========================================================================

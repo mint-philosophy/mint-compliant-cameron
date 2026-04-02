@@ -204,7 +204,7 @@ def generate_cell(
         "No commentary, no markdown fences, no text before or after the JSON."
     )
 
-    response = client.generate_with_retry(
+    gen_result = client.generate_with_retry(
         prompt=prompt,
         system_prompt=system_prompt,
         temperature=0.7,
@@ -212,10 +212,11 @@ def generate_cell(
         json_mode=True,
     )
 
-    if not response:
+    if not gen_result or not gen_result.content:
         logger.error(f"No response for {defeat_type} x {authority_type}")
         return []
 
+    response = gen_result.content
     cases = extract_json_array(response)
     if cases is None:
         logger.error(f"Failed to parse JSON for {defeat_type} x {authority_type}")

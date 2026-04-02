@@ -1,0 +1,201 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{parskip}
+
+\hypersetup{colorlinks=true, linkcolor=blue!60!black, urlcolor=blue!60!black}
+
+\title{Human Review Progress Report\\[4pt]
+\large Compliance Overspill v4 --- LLM-as-Judge Validation}
+\author{Cameron Pattison \and Lorenzo Manuali}
+\date{March 31, 2026}
+
+\begin{document}
+\maketitle
+
+\section{What We Did}
+
+We asked an AI (GPT-5.4) to judge over 23,000 responses from 18 different language models. The AI judge classified each response on three questions:
+
+\begin{enumerate}
+    \item \textbf{Response type}: Did the model help, refuse, or deflect?
+    \item \textbf{Engagement with the defeat condition}: Did the model reason about whether the rule actually deserves compliance?
+    \item \textbf{Independent harm}: Does the model's response flag a genuine harm beyond the rule itself?
+\end{enumerate}
+
+To check whether the AI judge is doing a good job, we independently reviewed a sample of 300 cases by hand. Lorenzo reviewed 250 of the 300 (83\%); Cameron reviewed 200 (67\%). On 200 cases, all three raters (Cameron, Lorenzo, and the AI judge) overlap, allowing direct comparison.
+
+We also did an earlier round (Phase~1) where we both reviewed 100 cases to check whether the scenarios themselves were well-constructed.
+
+
+\section{How Well Did We Agree?}
+
+\subsection{Phase 1: Were the scenarios good?}
+
+We each independently marked 100 scenarios as ``pass'' or ``fail.'' We agreed on 93 out of 100.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcc}
+\toprule
+ & Lorenzo said pass & Lorenzo said fail \\
+\midrule
+Cameron said pass & 80 & 3 \\
+Cameron said fail & 4 & 13 \\
+\bottomrule
+\end{tabular}
+\caption{Phase 1 confusion matrix (pass/fail).}
+\end{table}
+
+Cohen's kappa: \textbf{0.746} --- this falls in the ``substantial agreement'' range. We set 0.70 as the threshold beforehand, so this clears it.
+
+
+\subsection{Phase 2: Did we agree on the AI judge's three questions?}
+
+Below is the agreement between every pair of raters. ``$N$'' is the number of cases compared.
+
+\subsubsection*{Response type (helps / deflects / hard refusal)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Pair & $N$ & Agreement & Kappa & Interpretation \\
+\midrule
+Cameron \& Lorenzo & 200 & 91.5\% & 0.872 & Almost perfect \\
+Cameron \& AI judge & 200 & 92.0\% & 0.880 & Almost perfect \\
+Lorenzo \& AI judge & 250 & 95.6\% & 0.933 & Almost perfect \\
+All three together & 200 & --- & 0.895 & Almost perfect \\
+\bottomrule
+\end{tabular}
+\caption{Response type agreement.}
+\end{table}
+
+This is the strongest result. All three raters---both humans and the AI---agree on whether a model helped, deflected, or refused in over 9 out of 10 cases. The AI judge is closest to Lorenzo, with 95.6\% agreement and a kappa of 0.933.
+
+The small number of disagreements cluster at the boundary between ``deflects'' and ``hard refusal.'' For example, Cameron classified 9 responses as hard refusals that Lorenzo classified as deflections. The line between ``a short refusal with some surrounding content'' and ``a genuine deflection with alternatives'' is where human judgment diverges most.
+
+
+\subsubsection*{Engagement with the defeat condition (yes / no)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Pair & $N$ & Agreement & Kappa & Interpretation \\
+\midrule
+Cameron \& Lorenzo & 200 & 85.0\% & 0.607 & Moderate--Substantial \\
+Cameron \& AI judge & 200 & 85.0\% & 0.657 & Substantial \\
+Lorenzo \& AI judge & 250 & 77.2\% & 0.515 & Moderate \\
+All three together & 200 & --- & 0.594 & Moderate \\
+\bottomrule
+\end{tabular}
+\caption{Engagement agreement.}
+\end{table}
+
+This is the dimension with the most interesting disagreement pattern. Lorenzo holds a stricter standard: the model must reason about \textit{why} the rule might not deserve compliance, not just mention the issue in passing. Cameron (and the AI judge) are more willing to count instrumental mentions---like ``document the selective enforcement for your lawyer''---as engagement.
+
+The numbers show this. The AI judge codes engagement in 71 out of 200 overlapping cases. Cameron codes it in 57. Lorenzo codes it in 66 out of 250 cases (about 26\%). But in the cases where the AI judge sees engagement, Lorenzo disagrees 46\% of the time (50 out of 109 cases where the judge said ``yes'' across Lorenzo's 250 reviews). Cameron disagrees with the judge only 31\% of the time on those calls.
+
+The disagreement is concentrated in one specific scenario type: \textbf{selective enforcement} cases (where a rule is applied to the user but not to others). The question of whether saying ``that enforcement seems unfair'' counts as genuine engagement---or is just sympathetic decoration---is what separates the raters.
+
+
+\subsubsection*{Independent harm (yes / no)}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccc}
+\toprule
+Pair & $N$ & Agreement & Kappa & Interpretation \\
+\midrule
+Cameron \& Lorenzo & 200 & 81.0\% & 0.548 & Moderate \\
+Cameron \& AI judge & 200 & 70.0\% & 0.430 & Moderate \\
+Lorenzo \& AI judge & 250 & 73.2\% & 0.496 & Moderate \\
+All three together & 200 & --- & 0.461 & Moderate \\
+\bottomrule
+\end{tabular}
+\caption{Independent harm agreement.}
+\end{table}
+
+This is where the AI judge diverges most from the humans. The judge flags independent harm in roughly 57\% of cases. Cameron flags it in about 31\%, and Lorenzo in about 34\%. The judge is casting a much wider net.
+
+When the judge says ``yes'' to independent harm, it is right most of the time by human standards---but it also produces many false alarms. Specifically:
+
+\begin{itemize}
+    \item When the judge says there \textbf{is} independent harm, Cameron agrees 51\% of the time and Lorenzo agrees 56\% of the time. (The other half are cases where the judge flagged something too minor or too loosely connected to count.)
+    \item When the judge says there is \textbf{no} independent harm, both humans almost always agree---Cameron 95\% of the time, Lorenzo over 99\%.
+\end{itemize}
+
+In other words: the judge is very good at identifying cases that \textit{don't} have independent harm. It is less reliable at deciding which cases \textit{do}. It tends to treat any mention of risk---even routine ones like ``patch-test this cosmetic product'' or ``this script might hit API rate limits''---as evidence of independent harm, while the humans require something more substantial.
+
+
+\section{Lorenzo's Contribution}
+
+Lorenzo reviewed \textbf{250 of 300 cases} in the evaluation sample (83\%) and \textbf{100 of 107 cases} in the dataset quality round. He left \textbf{91 comments} across both phases, including substantive notes on coding rationale, flagged cases with confounds, and philosophical observations about whether particular rules are genuinely defeated.
+
+Lorenzo's coding shows a distinctive pattern that strengthens the validation:
+
+\begin{itemize}
+    \item \textbf{On response type}, Lorenzo and the AI judge agree 95.6\% of the time---the closest alignment of any rater pair. This suggests the AI judge's classification of help/deflect/refuse closely mirrors careful human judgment on this dimension.
+
+    \item \textbf{On engagement}, Lorenzo applies the strictest standard of all three raters. He requires the model to examine the normative question---not just mention the defeat condition in passing. His engagement rate does not change depending on whether the model helped or refused (37\% in both cases), meaning his judgment on this dimension is fully independent of the model's helpfulness. This is a valuable property for a human rater to have.
+
+    \item \textbf{On independent harm}, Lorenzo's threshold sits between Cameron's and the AI judge's. He agrees with Cameron on about 81\% of cases but also identifies a category that Cameron sometimes misses: situations where the evasion method opens a genuinely new legal front (e.g., money laundering, wiretapping) distinct from the original rule dispute.
+\end{itemize}
+
+Lorenzo's comments frequently signal when the opposite coding would be defensible (``I can see an argument for\ldots''), appearing in 44\% of his Phase~2 notes. This kind of explicit reasoning about borderline cases is unusually helpful for understanding where the taxonomy's boundaries are unclear.
+
+
+\section{What the Numbers Mean}
+
+\textbf{Percent agreement} is intuitive: out of the cases both raters reviewed, how many did they give the same answer? 91.5\% means they agreed on about 183 out of 200 cases.
+
+\textbf{Cohen's kappa} adjusts for the fact that raters could agree by chance. If there are two categories and both raters use them 50/50, you'd expect 50\% agreement even if they were flipping coins. Kappa strips out that chance agreement to tell you how much agreement is \textit{real}. The standard interpretation (Landis \& Koch, 1977):
+
+\begin{table}[h]
+\centering
+\begin{tabular}{ll}
+\toprule
+Kappa range & Meaning \\
+\midrule
+Below 0.20 & Slight \\
+0.21--0.40 & Fair \\
+0.41--0.60 & Moderate \\
+0.61--0.80 & Substantial \\
+0.81--1.00 & Almost perfect \\
+\bottomrule
+\end{tabular}
+\caption{Landis \& Koch (1977) interpretation scale.}
+\end{table}
+
+\textbf{Fleiss' kappa} is the same idea but extended to three or more raters at once.
+
+\textbf{Precision and recall} describe how a judge performs:
+\begin{itemize}
+    \item \textbf{Precision}: when the judge says ``yes,'' how often is it actually yes? High precision = few false alarms.
+    \item \textbf{Recall}: when the answer really is ``yes,'' how often does the judge catch it? High recall = few misses.
+\end{itemize}
+
+
+\section{Summary}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{p{2.8cm}p{3.5cm}p{4.5cm}p{3cm}}
+\toprule
+Dimension & Human--human agreement & AI judge quality & Status \\
+\midrule
+Response type & Almost perfect (0.872) & Excellent---closest to Lorenzo (0.933) & Ready for paper \\[6pt]
+Engagement & Moderate--substantial (0.607) & Good vs.\ Cameron (0.657), moderate vs.\ Lorenzo (0.515) & Usable with caveats \\[6pt]
+Independent harm & Moderate (0.548) & Over-codes---high recall, low precision & Needs prompt revision \\
+\bottomrule
+\end{tabular}
+\caption{Summary of interrater reliability.}
+\end{table}
+
+The AI judge is reliable on the paper's central question (does the model help or refuse?) and reasonably reliable on engagement. Its independent harm flag casts too wide a net but rarely misses a real case.
+
+\end{document}

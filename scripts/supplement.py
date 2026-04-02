@@ -197,7 +197,7 @@ def generate_supplement(
 
     prompt = build_prompt(defeat_type, authority_type, delta)
 
-    response = client.generate_with_retry(
+    gen_result = client.generate_with_retry(
         prompt=prompt,
         system_prompt=SYSTEM_PROMPT,
         temperature=TEMPERATURE,
@@ -205,10 +205,11 @@ def generate_supplement(
         json_mode=True,
     )
 
-    if not response:
+    if not gen_result or not gen_result.content:
         logger.error(f"No response for {defeat_type} x {authority_type}")
         return []
 
+    response = gen_result.content
     cases = extract_json_array(response)
     if cases is None:
         logger.error(f"Failed to parse JSON for {defeat_type} x {authority_type}")

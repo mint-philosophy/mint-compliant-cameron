@@ -1,12 +1,13 @@
 """
 OpenRouter API client for v4 generation pipeline.
-Uses OpenAI SDK with OpenRouter base URL for Gemini Pro access.
+Uses OpenAI SDK with OpenRouter base URL.
 """
 from __future__ import annotations
 
 import os
 import logging
 import time
+from dataclasses import dataclass, field
 
 import openai
 from dotenv import load_dotenv
@@ -16,6 +17,30 @@ load_dotenv()
 logger = logging.getLogger(__name__)
 
 DEFAULT_MODEL = "google/gemini-3-pro-preview"
+
+
+@dataclass
+class GenerationResult:
+    """Result from an API call, including content and token usage."""
+    content: str | None = None
+    prompt_tokens: int = 0
+    completion_tokens: int = 0
+    reasoning_tokens: int = 0
+    cached_tokens: int = 0
+    model: str = ""
+
+    @property
+    def visible_tokens(self) -> int:
+        return self.completion_tokens - self.reasoning_tokens
+
+    def usage_dict(self) -> dict:
+        return {
+            "prompt_tokens": self.prompt_tokens,
+            "completion_tokens": self.completion_tokens,
+            "reasoning_tokens": self.reasoning_tokens,
+            "cached_tokens": self.cached_tokens,
+            "visible_tokens": self.visible_tokens,
+        }
 
 
 class OpenRouterClient:
@@ -42,8 +67,8 @@ class OpenRouterClient:
         max_tokens: int = 4000,
         json_mode: bool = False,
         extra_body: dict | None = None,
-    ) -> str | None:
-        """Single-turn completion with optional JSON mode and provider-specific params."""
+    ) -> GenerationResult:
+        """Single-turn completion. Returns GenerationResult with content and usage."""
         messages = [
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
@@ -58,11 +83,36 @@ class OpenRouterClient:
         if json_mode:
             kwargs["response_format"] = {"type": "json_object"}
         if extra_body:
+            # If extra_body sets max_completion_tokens (for reasoning models),
+            # drop the default max_tokens to avoid conflicts
+            if "max_completion_tokens" in extra_body:
+                del kwargs["max_tokens"]
             kwargs["extra_body"] = extra_body
 
         try:
             response = self.client.chat.completions.create(**kwargs)
-            return response.choices[0].message.content
+
+            result = GenerationResult(
+                content=response.choices[0].message.content,
+                model=getattr(response, "model", self.model_name),
+            )
+
+            # Extract token usage
+            usage = response.usage
+            if usage:
+                result.prompt_tokens = usage.prompt_tokens or 0
+                result.completion_tokens = usage.completion_tokens or 0
+                if hasattr(usage, "completion_tokens_details") and usage.completion_tokens_details:
+                    result.reasoning_tokens = getattr(
+                        usage.completion_tokens_details, "reasoning_tokens", 0
+                    ) or 0
+                if hasattr(usage, "prompt_tokens_details") and usage.prompt_tokens_details:
+                    result.cached_tokens = getattr(
+                        usage.prompt_tokens_details, "cached_tokens", 0
+                    ) or 0
+
+            return result
+
         except Exception as e:
             logger.error(f"Error generating completion: {e}")
             raise
@@ -77,8 +127,8 @@ class OpenRouterClient:
         retries: int = 5,
         base_delay: float = 2.0,
         extra_body: dict | None = None,
-    ) -> str | None:
-        """Generate with exponential backoff retry."""
+    ) -> GenerationResult | None:
+        """Generate with exponential backoff retry. Returns GenerationResult or None."""
         last_error = None
         for attempt in range(retries):
             try:
@@ -90,7 +140,7 @@ class OpenRouterClient:
                     json_mode=json_mode,
                     extra_body=extra_body,
                 )
-                if result:
+                if result.content:
                     return result
                 logger.warning(f"Attempt {attempt + 1}: empty response")
             except Exception as e:

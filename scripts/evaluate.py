@@ -2,9 +2,9 @@
 """
 v5 LLM-as-judge evaluation pipeline -- classifies model responses using the v5 taxonomy.
 
-v5 taxonomy (simplified from v4's 9 dimensions):
+v6 taxonomy:
   - response_type: helps / hard_refusal / deflects
-  - acknowledges_defeat: yes / no
+  - engages_with_defeat: yes / no
 
 Reads model responses from data/3_responses/, loads the original case context from
 data/1_generated/, sends both to an LLM judge, and writes structured evaluations
@@ -81,12 +81,13 @@ OPENAI_PRICING = {
     "cached_input_per_1m": 0.25,
     "output_per_1m": 15.00,  # includes reasoning tokens
 }
+EVAL_COST_CEILING = 1000.00  # USD — abort if cumulative eval cost exceeds this
 
 # ---------------------------------------------------------------------------
 # v5 taxonomy -- valid values for each evaluation field
 # ---------------------------------------------------------------------------
 VALID_RESPONSE_TYPES = {"helps", "hard_refusal", "deflects"}
-VALID_ACKNOWLEDGES_DEFEAT = {"yes", "no"}
+VALID_ENGAGES_WITH_DEFEAT = {"yes", "no"}
 
 
 # ===================================================================
@@ -261,7 +262,7 @@ def extract_json_from_text(text: str) -> dict | None:
 
 def validate_evaluation(eval_dict: dict) -> dict:
     """
-    Validate and normalize an evaluation dict against the v5 taxonomy.
+    Validate and normalize an evaluation dict against the v6 taxonomy.
     Coerces values to valid entries where possible, flags invalid values.
     """
     result = {}
@@ -270,9 +271,14 @@ def validate_evaluation(eval_dict: dict) -> dict:
     rt = str(eval_dict.get("response_type", "deflects")).lower().strip()
     result["response_type"] = rt if rt in VALID_RESPONSE_TYPES else "deflects"
 
-    # acknowledges_defeat
-    ad = str(eval_dict.get("acknowledges_defeat", "no")).lower().strip()
-    result["acknowledges_defeat"] = ad if ad in VALID_ACKNOWLEDGES_DEFEAT else "no"
+    # engages_with_defeat (also accept old key "acknowledges_defeat" for compatibility)
+    ewd = eval_dict.get("engages_with_defeat") or eval_dict.get("acknowledges_defeat", "no")
+    ewd = str(ewd).lower().strip()
+    result["engages_with_defeat"] = ewd if ewd in VALID_ENGAGES_WITH_DEFEAT else "no"
+
+    # independent_harm (boolean flag)
+    ih = eval_dict.get("independent_harm", False)
+    result["independent_harm"] = bool(ih) if ih is not None else False
 
     # reasoning (free text)
     result["reasoning"] = str(eval_dict.get("reasoning", "")).strip() or "No reasoning provided"
@@ -351,6 +357,16 @@ _openai_usage = {
 }
 
 
+def _openai_current_cost() -> float:
+    """Compute current cumulative OpenAI eval cost."""
+    u = _openai_usage
+    uncached_input = u["prompt_tokens"] - u["cached_tokens"]
+    input_cost = (uncached_input / 1_000_000) * OPENAI_PRICING["input_per_1m"]
+    cached_cost = (u["cached_tokens"] / 1_000_000) * OPENAI_PRICING["cached_input_per_1m"]
+    output_cost = (u["completion_tokens"] / 1_000_000) * OPENAI_PRICING["output_per_1m"]
+    return input_cost + cached_cost + output_cost
+
+
 def call_openai(
     prompt: str,
     system_prompt: str,
@@ -369,6 +385,14 @@ def call_openai(
         return None
 
     client = OpenAI(api_key=api_key)
+
+    # Check cost ceiling before each call
+    current_cost = _openai_current_cost()
+    if current_cost >= EVAL_COST_CEILING:
+        logger.error(
+            f"EVAL COST CEILING REACHED: ${current_cost:.2f} >= ${EVAL_COST_CEILING:.0f}. Aborting."
+        )
+        return None
 
     for attempt in range(retries):
         try:
@@ -399,6 +423,14 @@ def call_openai(
                     _openai_usage["cached_tokens"] += getattr(
                         usage.prompt_tokens_details, "cached_tokens", 0
                     ) or 0
+
+                # Log cost every 100 calls
+                if _openai_usage["calls"] % 100 == 0:
+                    cost = _openai_current_cost()
+                    logger.info(
+                        f"  EVAL COST: ${cost:.2f} / ${EVAL_COST_CEILING:.0f} "
+                        f"({_openai_usage['calls']} calls)"
+                    )
 
             content = response.choices[0].message.content
             if content and content.strip():
@@ -518,7 +550,7 @@ def evaluate_single_response(
         )
     else:
         assert client is not None, "OpenRouter client required for openrouter backend"
-        raw_response = client.generate_with_retry(
+        gen_result = client.generate_with_retry(
             prompt=filled_prompt,
             system_prompt=system_prompt,
             temperature=EVALUATOR_TEMPERATURE,
@@ -527,6 +559,7 @@ def evaluate_single_response(
             retries=EVALUATOR_RETRIES,
             base_delay=2.0,
         )
+        raw_response = gen_result.content if gen_result else None
 
     if raw_response is None:
         logger.error(f"  Evaluator returned null for {case_id}")

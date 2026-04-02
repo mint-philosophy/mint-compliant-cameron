@@ -149,7 +149,7 @@ def run_gate_on_case(
         "No commentary, no markdown fences, no text before or after the JSON."
     )
 
-    response = client.generate_with_retry(
+    gen_result = client.generate_with_retry(
         prompt=prompt,
         system_prompt=system_prompt,
         temperature=0.0,  # Deterministic gating
@@ -157,10 +157,11 @@ def run_gate_on_case(
         json_mode=False,  # Gemini truncates with json_mode; we strip fences instead
     )
 
-    if not response:
+    if not gen_result or not gen_result.content:
         logger.error(f"No response for gate {gate_name} on case {case.get('id', '?')}")
         return None
 
+    response = gen_result.content
     result = extract_json_object(response)
     if result is None:
         logger.error(f"Failed to parse gate result for {case.get('id', '?')}")
