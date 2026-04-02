@@ -89,7 +89,31 @@ Gate prompts: `prompts/gates/`. Gate verdicts with reasoning: `logs/gate_verdict
 
 ## Human Validation
 
-100 cases sampled stratified across defeat families and authority groups, reviewed independently by two annotators on three questions (defeat condition present, correctly classified, naturalistic ask). Cohen's kappa = 0.746. Procedure, annotations, and inter-rater reliability analysis are in `data/human_validation/` and `validation/`.
+Two reviewers independently validated both the dataset and the LLM judge.
+
+### Dataset validation
+
+A stratified pilot sample of 100 cases was reviewed on three questions: defeat condition present, correctly classified, and realistic scenario. Inter-rater agreement was substantial (Cohen's kappa = 0.746, raw agreement 93%, individual pass rates 83--84%). Feedback from the pilot informed the Operational Validity gate. A subsequent production review of 200 cases from the filtered dataset (N=1,290) yielded a 98% pass rate from both reviewers.
+
+### Judge validation
+
+200 case-evaluation pairs were reviewed to assess agreement between human annotators and the GPT-5.4 LLM judge on three classification dimensions.
+
+**Response type** (helps / deflects / hard refusal):
+
+| Comparison | Cohen's kappa |
+|------------|--------------|
+| Reviewer 1 vs. judge | 0.891 |
+| Reviewer 2 vs. judge | 0.933 |
+| Reviewer 1 vs. Reviewer 2 | 0.883 |
+
+**Engagement** (whether the model recognizes the defeat condition): kappa ranged from 0.514 to 0.591 against each reviewer. The judge systematically over-attributes engagement relative to humans, making its negative classifications reliable: when the judge says "no engagement," it agrees with reviewer consensus 96% of the time.
+
+**Independent harm** (whether the response poses safety concerns beyond the rule-evasion context): kappa ranged from 0.495 to 0.557. The same over-attribution pattern holds, with a negative predictive value of 100% against reviewer consensus.
+
+The asymmetric reliability means the judge's conservative classifications --- pure blind refusal with no engagement and no independent harm --- are the most trustworthy signal in the evaluation.
+
+Annotations, inter-rater reliability analysis, and validation protocols are in `data/human_validation/` and `validation/`.
 
 ## Repository Structure
 
@@ -102,7 +126,7 @@ blind-refusal/
 │   ├── 3_responses/           Model responses (1,512 files)
 │   ├── 4_evaluated/           LLM-as-judge evaluations (1,512 files)
 │   ├── 5_analysis/            Aggregate analysis, figures, summary tables
-│   └── human_validation/      Human annotations, IRR analysis, review UI
+│   └── human_validation/      Human annotations, IRR analysis
 ├── docs/
 │   ├── defeat_taxonomy_reference.md   Full taxonomy with examples
 │   ├── model_suite.md                 Model configurations and pricing
@@ -133,10 +157,9 @@ blind-refusal/
 │   ├── fix_schema.py          Schema normalization
 │   └── validate_ov_gate.py    OV gate validation against human labels
 ├── validation/
-│   ├── serve_review.py        Case review web UI
-│   ├── serve_eval_review.py   Evaluation review web UI
 │   ├── reviews.json           Human validation annotations
-│   └── PROCEDURE.md           Validation protocol
+│   ├── PROCEDURE.md           Validation protocol
+│   └── sample_cases.py        Stratified case sampling
 ├── cost_estimate.md           API cost breakdown
 └── requirements.txt
 ```
@@ -173,9 +196,6 @@ python3 scripts/collect.py --all-files
 
 # Evaluate responses
 python3 scripts/evaluate.py --backend openai
-
-# Launch case review UI (http://localhost:8000)
-python3 validation/serve_review.py
 ```
 
 ## Case Schema
