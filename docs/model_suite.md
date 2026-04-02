@@ -1,7 +1,7 @@
-# Compliance Overspill Benchmark — Model Suite
+# Blind Refusal — Model Suite
 
 **Prepared**: March 2026
-**Purpose**: Document the target models for response collection and evaluation in the COLM 2026 compliance overspill study.
+**Purpose**: Document the target models for response collection and evaluation in the Blind Refusal study.
 
 ---
 

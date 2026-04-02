@@ -507,4 +507,4 @@ This approach avoids the technical triggers that send alerts to the account admi
 
 ---
 
-*From: Rule-Blind Refusal: Language Models Refuse to Help Break Rules Without Regard to Whether the Rules Deserve Compliance (COLM 2026 submission)*
+*From: Blind Refusal: Language Models Refuse to Help Users Evade Unjust, Absurd, and Illegitimate Rules (Pattison, Manuali, and Lazar, 2026)*
